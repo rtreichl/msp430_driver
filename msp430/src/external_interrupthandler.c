@@ -5,7 +5,9 @@
  *      Author: Richard
  */
 
-#include <driver/external_interrupthandler.h>
+#include <driver/driver.h>
+
+#if DRIVER_MSP430_EXT
 
 typedef volatile void (*ptrfunc)(uint8_t);
 ptrfunc ext_int_handler[16] = {0};
@@ -83,3 +85,5 @@ __interrupt void Port12_interrupts(void)
 		P2IFG = 0;
 	}
 }
+
+#endif /*DRIVER_MSP430_EXT*/

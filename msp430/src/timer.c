@@ -5,7 +5,9 @@
  *      Author: Richi
  */
 
-#include <driver/timer.h>
+#include <driver/driver.h>
+
+#if DRIVER_MSP430_TIMER
 
 volatile uint16_t timer_count[TIMER_COUNTS];
 volatile uint16_t timer_delay;
@@ -130,6 +132,7 @@ void _delay_ten_us(uint16_t delay)
 	TA1CCTL0 &= ~CCIE;
 }
 
+#endif /*DRIVER_MSP430_TIMER*/
 
 /*TODO Implement various timers and a timer handler for event timers and normal timers to calculate runtimes
  * for function on main handler. Timer initialization should be include setup base clock on given configuration

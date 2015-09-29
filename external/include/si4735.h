@@ -9,8 +9,7 @@
 #define SI4735_H_
 
 #include <stdint.h>
-#include <driver/i2c.h>
-#include <driver/timer.h>
+#include <driver/driver.h>
 #include <settings/radio_pin_mapping.h>
 
 

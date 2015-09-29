@@ -5,8 +5,10 @@
  *      Author: Richi
  */
 
-#include <driver/flash.h>
+#include <driver/driver.h>
+#include <string.h>
 
+#if DRIVER_MSP430_FLASH
 
 uint8_t flash_store(void *data, uint8_t size, uint16_t pos)
 {
@@ -78,3 +80,5 @@ void flash_erase(uint8_t *Flash_ptr)
 	FCTL1 = FWKEY;                           // Clear WRT bit
 	FCTL3 = FWKEY + LOCK;                    // Set LOCK bit
 }
+
+#endif /*DRIVER_MSP430_FLASH*/

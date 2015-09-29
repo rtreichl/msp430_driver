@@ -8,18 +8,20 @@
 #ifndef DRIVER_DRIVER_H_
 #define DRIVER_DRIVER_H_
 
-#include <driver/external/encoder.h>
-//#include <driver/external_interrupthandler.h>
-//#include <driver/flash.h>
-#include <driver/msp430/i2c.h>
-#include <driver/external/button.h>
-//#include <driver/lcd.h>
-//#include <driver/opt3001.h>
-//#include <driver/pca9530.h>
-//#include <driver/pca9534.h>
-//#include <driver/pca9632.h>
-#include <driver/external/si4735.h>
-#include <driver/msp430/timer.h>
-//#include <driver/tpa2016d2.h>
+#define DRIVER_ENABLE	1
+#define DRIVER_DISABLE	0
+
+#define DRIVER_MSP430_I2C	DRIVER_ENABLE
+#define DRIVER_MSP430_EXT	DRIVER_ENABLE
+#define DRIVER_MSP430_FLASH	DRIVER_DISABLE
+#define DRIVER_MSP430_TIMER	DRIVER_ENABLE
+
+#include "msp430/msp430.h"
+
+#define DRIVER_EXT_SI4735	DRIVER_ENABLE
+#define DRIVER_EXT_BUTTON	DRIVER_ENABLE
+#define DRIVER_EXT_ENCODER	DRIVER_ENABLE
+
+#include "external/external.h"
 
 #endif /* DRIVER_DRIVER_H_ */

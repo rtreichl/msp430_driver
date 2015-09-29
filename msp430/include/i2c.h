@@ -19,10 +19,6 @@
 
 #include <stdint.h>
 #include <msp430.h>
-#include <stdint.h>
-#include <stdlib.h>
-#include <stdarg.h>
-#include <driver/timer.h>
 
 #define VARIADIC_IMPLEMENTATION 0
 

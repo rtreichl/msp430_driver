@@ -13,9 +13,6 @@
 #define FLASH_ADR_STOP	0x10FF
 
 #include <stdint.h>
-#include <stdint.h>
-#include <string.h>
-#include <msp430.h>
 
 uint8_t flash_store(void *data, uint8_t size, uint16_t pos);
 uint8_t flash_read(void *data, uint8_t size, uint16_t pos);

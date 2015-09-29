@@ -1,4 +1,8 @@
-#include <driver/i2c.h>
+#include <driver/driver.h>
+#include <stdlib.h>
+#include <stdarg.h>
+
+#if DRIVER_MSP430_I2C
 
 /**
  * @struct I2C_CTRL
@@ -271,3 +275,5 @@ __interrupt void USCIAB0RX_ISR(void)
 		UCB0STAT &= ~UCNACKIFG;
 	}
 }
+
+#endif /*DRIVER_MSP430_I2C*/
