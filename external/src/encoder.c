@@ -1,234 +1,147 @@
-#include <driver/encoder.h>
+///----------------------------------------------------------------------------------------
+///
+/// \file encoder.c
+///
+/// \brief 
+///
+/// \date 29.09.2015
+///
+/// \author Richard Treichl
+///
+/// \remark
+///
+/// \todo
+///
+/// \version	1.0
+///
+///----------------------------------------------------------------------------------------
 
-#ifndef ENCODER_1
+#include <driver/driver.h>
 
-//Variables from Encoder 1
-volatile uint16_t encoder_1_count = 0;							//Shows the actual value from Encoder 1
-volatile int8_t encoder_1_last = 0;									//Last state from Encoder 1
-volatile uint8_t encoder_1_button = 0;									//Button Value for Menu
-volatile int8_t encoder_1_state = 0;									//Button Value for State mashine in Encoder
-volatile int16_t count_button_1 = 0;									//
+#if DRIVER_EXT_ENCODER
 
-#endif
+volatile ENCODER *encoders[16];
 
-#ifndef ENCODER_2
-
-//Variables from Encoder 2
-volatile uint16_t encoder_2_count = 0;							//Shows the actual value from Encoder 2
-volatile int8_t encoder_2_last = 0;									//Last state from Encoder 2
-volatile uint8_t encoder_2_button = 0;
-volatile int8_t encoder_2_state = 0;
-volatile int16_t count_button_2 = 0;
-
-#endif
-
-#ifdef ENCODER_1
-
-int16_t encoder_1_update(ENCODER *encoder)
+uint16_t encoder_create(ENCODER *encoder)
 {
-	static uint16_t tmp_count_1 = 0x8000;						//Set a start Value in the Middle of Range
-	uint16_t tmp_en = encoder_1_count;							//Save encoder_2_count if there is a break form a Interrupt
-	uint16_t tmp_t = tmp_count_1/4;								//Calculate number of Steps
+	uint8_t *port = PORT1;
+	uint8_t pin = (1 << (encoder->int_number_A % 8));
+
+	encoder->old_count = 0x8000;
+
+	///>Configure PIN for signal A
+
+	if(encoder->int_number_A >= 8){
+		port = PORT2;
+	}
+
+	PIE(port) &= ~(pin);					//Disable Interrupt on all listed Pins
+	PDIR(port) &= ~(pin);
+	PREN(port) |= pin;
+	POUT(port) |= (pin); //default &= ~
+
+	if((PIN(port) & pin) != 0)
+	{
+		encoder->last = 3;											//Decode Graycode new = Bit1 := A and Bit0 := A^B
+		PIES(port) |= pin;								//Interrupt for a falling edge for Signal A
+
+	}
+
+	encoders[encoder->int_number_A] = encoder;
+
+	///>Configure PIN for signal B
+
+	port = PORT1;
+	pin = (1 << (encoder->int_number_A % 8));
+
+	if(encoder->int_number_B >= 8){
+		port = PORT2;
+	}
+
+	PIE(port) &= ~pin;					//Disable Interrupt on all listed Pins
+	PDIR(port) &= ~pin;
+	PREN(port) |= pin;
+	POUT(port) |= (pin); //default &= ~
+
+	if((PIN(port) & pin) != 0)
+	{
+		encoder->last ^= 1;										//Decode Graycode new = Bit1 := A and Bit0 := A^B
+		PIES(port) |= pin;								//Interrupt for a falling edge for Signal B
+	}
+
+	encoders[encoder->int_number_B] = encoder;
+
+	ext_interrupt_create(encoder->int_number_A, encoder_interrupt);
+	ext_interrupt_create(encoder->int_number_B, encoder_interrupt);
+	ext_interrupt_enable(encoder->int_number_A);
+	ext_interrupt_enable(encoder->int_number_B);
+
+	if(encoder->button.int_number_button != 0) {
+		button_create(&(encoder->button), BUTTON_PULL_UP);
+	}
+
+	__bis_SR_register(GIE);
+	return 0;
+}
+
+int16_t encoder_update(ENCODER *encoder)
+{
+							//Set a start Value in the Middle of Range
+	uint16_t tmp_en = encoder->count;							//Save encoder_2_count if there is a break form a Interrupt
+	uint16_t tmp_t = encoder->old_count/4;								//Calculate number of Steps
 	uint16_t tmp_en_t = tmp_en/4;								//Calculate number of Steps
 	if((tmp_en%4) == 3)												//Check if Encoder is near the next full Rast point
 	{
 		tmp_en_t++;													//if true up Value for Steps of act. Value
 	}
-	if((tmp_count_1%4) == 3)										//Check if last Value of Encoder was near the next full Rast point
+	if((encoder->old_count%4) == 3)										//Check if last Value of Encoder was near the next full Rast point
 	{
 		tmp_t++;													//if true up Value for Steps of last Value
 	}
 	int16_t diff = tmp_en_t - tmp_t;									//make the difference of act. and last Value
-	tmp_count_1 = tmp_en;											//save act. Value as last Value
-	encoder->count += diff;
-	encoder->button = (uint8_t *)&encoder_1_button;
+	encoder->old_count = tmp_en;											//save act. Value as last Value
+	encoder->steps += diff;
 	return 0;													//give difference back
 }
 
-void Encoder_1_decoder(void)
+void encoder_interrupt(uint8_t int_number)
 {
-	int8_t encoder_1_new = 0, encoder_1_diff = 0;
-	if((EN1_A_IN & EN1_A_PIN) != 0)							//Check Signal A for a High Value
-	{
-		encoder_1_new = 3;											//Decode Graycode new = Bit1 := A and Bit0 := A^B
+	int8_t encoder_new = 0, encoder_diff = 0;
 
+	uint8_t *port = PORT1;
+	uint8_t pin = (1 << (encoders[int_number]->int_number_A % 8));
+
+	if(encoders[int_number]->int_number_A >= 8){
+		port = PORT2;
+	}
+
+	if((PIN(port) & pin) != 0)							//Check Signal A for a High Value
+	{
+		encoder_new = 3;											//Decode Graycode new = Bit1 := A and Bit0 := A^B
+	}
+
+	PIES(port)^= (PIFG(port) & pin);
+
+	port = PORT1;
+	pin = (1 << (encoders[int_number]->int_number_B % 8));
+
+	if(encoders[int_number]->int_number_A >= 8){
+			port = PORT2;
+	}
+
+	if((PIN(port) & pin) != 0)							//Check Signal A for a High Value
+	{
+		encoder_new ^= 1;											//Decode Graycode new = Bit1 := A and Bit0 := A^B
 
 	}
-	if((EN1_B_IN & EN1_B_PIN) != 0)							//Check Signal A for a High Value
+	encoder_diff = encoders[int_number]->last - encoder_new;				//The difference of last and new can only be -3, -1, 1, 3
+	if(encoder_diff & 1 == 1)										//Check difference if an Error occurred. Bit0 is always 1
 	{
-		encoder_1_new ^= 1;											//Decode Graycode new = Bit1 := A and Bit0 := A^B
+		encoders[int_number]->last = encoder_new;								//Save the new Value form Encoder to last											//Rotary direction can be set to right(0) or left(1) this option only demand the count direction
+		encoders[int_number]->count -= ((encoder_diff & 2) - 1);				//the difference is for right rotary 1 1 1 -3 and for left -1 -1 -1 3 the bit mask will force the second bit
+	}
 
-	}
-	encoder_1_diff = encoder_1_last - encoder_1_new;				//The difference of last and new can only be -3, -1, 1, 3
-	if(encoder_1_diff & 1 == 1)										//Check difference if an Error occurred. Bit0 is always 1
-	{
-		encoder_1_last = encoder_1_new;								//Save the new Value form Encoder to last
-#if ENCODER_1_ROTARY == 0											//Rotary direction can be set to right(0) or left(1) this option only demand the count direction
-		encoder_1_count -= ((encoder_1_diff & 2) - 1);				//the difference is for right rotary 1 1 1 -3 and for left -1 -1 -1 3 the bit mask will force the second bit
-#else
-		encoder_1_count += ((encoder_1_diff & 2) - 1);				//the difference is for left rotary 1 1 1 -3 and for right -1 -1 -1 3 the bit mask will force the second bit
-#endif
-	}
+	PIES(port)^= (PIFG(port) & pin);
 }
 
-void Encoder_1_init(void)
-{
-	encoder_1_last = 0;
-	encoder_1_count = 0x8000;
-	encoder_1_button = 'f';
-	encoder_1_state = 0;
-	EN1_A_IE &= ~(EN1_A_PIN);					//Disable Interrupt on all listed Pins
-	EN1_B_IE &= ~(EN1_B_PIN);
-	EN1_A_DIR &= ~(EN1_A_PIN);	//Set Signal A, B, Button as Input
-	EN1_B_DIR &= ~(EN1_B_PIN);
-	EN1_TAST_DIR &= ~(EN1_TAST_PIN);
-	EN1_TAST_REN  |=  EN1_TAST_PIN;									//Enable Pullup/Pulldown on Button Pin
-	EN1_TAST_OUT |=  EN1_TAST_PIN;									//Set Pullup Resistor on Button Pin
-	EN1_A_OUT &= ~(EN1_A_PIN);
-	EN1_B_OUT &= ~(EN1_B_PIN);
-	if((EN1_A_IN & EN1_A_PIN) != 0)
-	{
-		encoder_1_last = 3;											//Decode Graycode new = Bit1 := A and Bit0 := A^B
-		EN1_A_IES |=  EN1_A_PIN;								//Interrupt for a falling edge for Signal A
-
-	}
-	if((EN1_B_IN & EN1_B_PIN) != 0)
-	{
-		encoder_1_last ^= 1;										//Decode Graycode new = Bit1 := A and Bit0 := A^B
-		EN1_B_IES |=  EN1_B_PIN;								//Interrupt for a falling edge for Signal B
-	}
-	/*EN1_A_IFG &= ~(EN1_A_PIN);									//Clear Interrupt Flag before enable Interrupt on all listed Pins
-	EN1_B_IFG &= ~(EN1_B_PIN);
-	EN1_A_IE |= EN1_A_PIN;										//Enable Interrupt on all listed Pins
-	EN1_B_IE |= EN1_B_PIN;*/
-	ext_interrupt_create(EN1_A_INT, encoder_interrupt);
-	ext_interrupt_create(EN1_B_INT, encoder_interrupt);
-	ext_interrupt_enable(EN1_A_INT);
-	ext_interrupt_enable(EN1_B_INT);
-	__bis_SR_register(GIE);
-}
-
-#endif	//ENCODER_1
-
-#ifdef ENCODER_2
-
-int16_t encoder_2_update(ENCODER *encoder)
-{
-	static uint16_t tmp_count_2 = 0x8000;						//Set a start Value in the Middle of Range
-	uint16_t tmp_en = encoder_2_count;							//Save encoder_2_count if there is a break form a Interrupt
-	uint16_t tmp_t = tmp_count_2/4;								//Calculate number of Steps
-	uint16_t tmp_en_t = tmp_en/4;								//Calculate number of Steps
-	if((tmp_en%4) == 3)												//Check if Encoder is near the next full Rast point
-	{
-		tmp_en_t++;													//if true up Value for Steps of act. Value
-	}
-	if((tmp_count_2%4) == 3)										//Check if last Value of Encoder was near the next full Rast point
-	{
-		tmp_t++;													//if true up Value for Steps of last Value
-	}
-	int16_t diff = tmp_en_t - tmp_t;									//make the difference of act. and last Value
-	tmp_count_2 = tmp_en;											//save act. Value as last Value
-	encoder->count += diff;
-	encoder->button = (uint8_t *)&encoder_2_button;
-	return 0;													//give difference back
-}
-
-void Encoder_2_decoder(void)
-{
-	int8_t encoder_2_new = 0, encoder_2_diff = 0;
-	if((EN2_A_IN & EN2_A_PIN) != 0)							//Check Signal A for a High Value
-	{
-		encoder_2_new = 3;											//Decode Graycode new = Bit1 := A and Bit0 := A^B
-
-	}
-	if((EN2_B_IN & EN2_B_PIN) != 0)							//Check Signal A for a High Value
-	{
-		encoder_2_new ^= 1;											//Decode Graycode new = Bit1 := A and Bit0 := A^B
-	}
-	encoder_2_diff = encoder_2_last - encoder_2_new;				//The difference of last and new can only be -3, -1, 1, 3
-	if(encoder_2_diff & 1 == 1)										//Check difference if an Error occurred. Bit0 is always 1
-	{
-		encoder_2_last = encoder_2_new;								//Save the new Value form Encoder to last
-#if ENCODER_2_ROTARY == 0											//Rotary direction can be set to right(0) or left(1) this option only demand the count direction
-		encoder_2_count -= ((encoder_2_diff & 2) - 1);				//the difference is for right rotary  1 1 1 -3 and for left -1 -1 -1 3 the bit mask will force the second bit
-#else
-		encoder_2_count += ((encoder_2_diff & 2) - 1);				//the difference is for left rotary 1 1 1 -3 and for right -1 -1 -1 3 the bit mask will force the second bit
-#endif
-	}
-}
-
-void Encoder_2_init(void)
-{
-	encoder_2_last = 0;
-	encoder_2_count = 0x8000;
-	encoder_2_button = 'f';
-	encoder_2_state = 0;
-	EN2_A_IE &= ~(EN2_A_PIN);					//Disable Interrupt on all listed Pins
-	EN2_B_IE &= ~(EN2_B_PIN);
-	EN2_A_DIR &= ~(EN2_A_PIN);	//Set Signal A, B, Button as Input
-	EN2_B_DIR &= ~(EN2_B_PIN);
-	EN2_TAST_DIR &= ~(EN2_TAST_PIN);
-	EN2_TAST_REN  |=  EN2_TAST_PIN;									//Enable Pullup/Pulldown on Button Pin
-	EN2_TAST_OUT |=  EN2_TAST_PIN;									//Set Pullup Resistor on Button Pin
-	EN2_A_OUT &= ~(EN2_A_PIN);
-	EN2_B_OUT &= ~(EN2_B_PIN);
-	if((EN2_A_IN & EN2_A_PIN) != 0)
-	{
-		encoder_2_last = 3;											//Decode Graycode new = Bit2 := A and Bit0 := A^B
-		EN2_A_IES |=  EN2_A_PIN;								//Interrupt for a falling edge for Signal A
-
-	}
-	if((EN2_B_IN & EN2_B_PIN) != 0)
-	{
-		encoder_2_last ^= 1;										//Decode Graycode new = Bit2 := A and Bit0 := A^B
-		EN2_B_IES |=  EN2_B_PIN;								//Interrupt for a falling edge for Signal B
-	}
-	ext_interrupt_create(EN2_A_INT, encoder_interrupt);
-	ext_interrupt_create(EN2_B_INT, encoder_interrupt);
-	ext_interrupt_enable(EN2_A_INT);
-	ext_interrupt_enable(EN2_B_INT);
-	__bis_SR_register(GIE);
-}
-
-#endif	//ENCODER_2
-
-/*void encoder_interrupt2(void)
-{
-	if((BOARD_TAST_IN & BOARD_TAST_PIN) == 0) {
-		count_button_1++;
-	}
-	else {
-		if(count_button_1 > TIME_FOR_SHORT_PRESS) {
-			encoder_1_button++;
-			encoder_1_state = BUTTON_SHORT;
-		}
-		count_button_1 = 0;
-	}
-
-	if((HEADER_TAST_IN & HEADER_TAST_PIN) == HEADER_TAST_PIN) {
-		count_button_2++;
-	}
-    else {
-    	if(count_button_2 > TIME_FOR_SHORT_PRESS) {
-    		encoder_2_button++;
-        	encoder_2_state = BUTTON_SHORT;
-    	}
-    	count_button_2 = 0;
-    }
-}*/
-
-void encoder_interrupt(void)
-{
-	#ifdef ENCODER_1
-		if((EN1_A_IFG & EN1_A_PIN) || (EN1_A_IFG & EN1_B_PIN))
-			Encoder_1_decoder();
-		EN1_A_IES ^= (EN1_A_IFG & EN1_A_PIN);
-		EN1_B_IES ^= (EN1_B_IFG & EN1_B_PIN);
-	#endif
-	#ifdef ENCODER_2
-		if((EN2_A_IFG & EN2_A_PIN) || (EN2_A_IFG & EN2_B_PIN))
-			Encoder_2_decoder();
-		EN2_A_IES ^= (EN2_A_IFG & EN2_A_PIN);
-		EN2_B_IES ^= (EN2_B_IFG & EN2_B_PIN);
-	#endif
-}
+#endif /*DRIVER_EXT_ENCODER*/
