@@ -8,10 +8,10 @@
  *   Kommentar: In bearbeitung: die Frequenz soll über FM_Tune_Status abgefragt und im Flash gespeichert werden
  *   							es soll auch die zuletzt verwendete Lautstärke gespeichert werden
  */
-#include <driver/si4735.h>
-#include <driver/include/si4735_cmd_prop.h>
+#include "../include/si4735.h"
+#include "../include/si4735_cmd_prop.h"
 #include <settings/radio_configuration.h>
-#include <driver/external_interrupthandler.h>
+#include <driver/driver.h>
 
 volatile uint8_t si_interrupt;
 
