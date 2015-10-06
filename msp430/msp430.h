@@ -37,4 +37,8 @@
 #include "include/timer.h"
 #endif
 
+#if DRIVER_MSP430_ADC
+#include "include/adc.h"
+#endif
+
 #endif /* DRIVER_MSP430_MSP430_H_ */
