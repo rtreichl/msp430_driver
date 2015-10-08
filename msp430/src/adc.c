@@ -59,7 +59,7 @@ uint16_t adc_create(ADC *adc)
 		return 0; //TODO return Fault!!
 	}
 
-	adc->result = (uint16_t *)ADC10SA + 2 * adc->port; //reconfig pointer where result is stored from ADC
+	adc->result = (uint16_t *)ADC10SA + 7 - adc->port; //reconfig pointer where result is stored from ADC
 
 	ADC10AE0 |= (1 << adc->port);
 
